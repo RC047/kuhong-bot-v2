@@ -1,5 +1,4 @@
-let { WAConnection: _WAConnection, WA_MESSAGE_STUB_TYPES } = require('@adiwajshing/baileys')
-let file = require.resolve(__filename)
+let { WAConnection, MessageType, Mimetype, WA_MESSAGE_STUB_TYPES } = require('@adiwajshing/baileys')
 let express = require('express')
 let { generate } = require('qrcode-terminal')
 let qrcode = require('qrcode')
@@ -16,7 +15,6 @@ let { spawn, spawnSync } = require('child_process')
 let Database = require('./lib/database')
 let Readline = require('readline')
 let rl = Readline.createInterface(process.stdin, process.stdout)
-let WAConnection = simple.WAConnection(_WAConnection)
 
 
 global.owner = ['62895337278647'] // Put your number here
@@ -137,8 +135,10 @@ conn.handler = async function (m) {
         if (!'welcome' in chat) chat.welcome = true
         if (!'sWelcome' in chat) chat.sWelcome = ''
         if (!'sBye' in chat) chat.sBye = ''
+        if (!'sPromote' in chat) chat.sPromote = ''
+        if (!'sDemote' in chat) chat.sDemote = ''
         if (!'antidelete' in chat) chat.antidelete = false
-        if (!'antispam' in chat) chat.antidelete = false
+        if (!'antispam' in chat) chat.antispam = false
         if (!'antilink' in chat) chat.antilink = false
         if (!'antivirtex' in chat) chat.antivirtex = false
         if (!'antitoxic' in chat) chat.antitoxic = false
@@ -149,6 +149,8 @@ conn.handler = async function (m) {
         welcome: true,
         sWelcome: '',
         sBye: '',
+        sPromote: '',
+        sDemote: '',
         antidelete: false,
         antispam: false,
         antilink: false,
@@ -160,10 +162,12 @@ conn.handler = async function (m) {
     } catch (e) {
       console.log(e, global.DATABASE.data)
     }
+    if (opts['nyimak']) return
     if (!m.fromMe && opts['self']) return
     if (!m.text) return
+    if (typeof m.text !== 'string') m.text = ''
     if (m.isBaileys) return
-    m.exp += 1
+    m.exp += Math.ceil(Math.random() * 10)
 
     let usedPrefix
     let _user = global.DATABASE._data.users[m.sender]
@@ -380,54 +384,48 @@ conn.handler = async function (m) {
 
 conn.welcome = '*「 WELCOME 」*\n\nHalo @user!\nSelamat datang di grup\n*@subject*\n\n@desc'
 conn.bye = '*「 GOOD BYE 」*\n\nAl-Fatihah kepada @user\nyang telah keluar dari grup!'
-conn.onAdd = async function ({ m, participants }) {
-  let chat = global.DATABASE._data.chats[m.key.remoteJid]
-  if (!chat.welcome) return
-  for (let user of participants) {
-    let pp = './src/avatar_contact.png'
-    try {
-      pp = await this.getProfilePicture(user)
-    } catch (e) {
-    } finally {
-      let text = (chat.sWelcome || this.welcome || conn.welcome || 'Welcome, @user!').replace('@user', '@' + user.split('@')[0]).replace('@subject', this.getName(m.key.remoteJid).replace('@desc', await this.groupMetadata(m.key.remoteJid).desc))
-      this.sendFile(m.key.remoteJid, pp, 'pp.jpg', text, m, false, {
-        contextInfo: {
-          mentionedJid: [user]
+conn.promote = '*「 PROMOTED 」*\n\n@user sekarang adalah _Admin_!'
+conn.demote = '*「 DEMOTED 」*\n\n@user sekarang bukan _Admin_ lagi!'
+
+conn.participants = async function ({ jid, participants, action }) {
+    let chat = global.DATABASE._data.chats[jid]
+    let text = ''
+    switch (action) {
+      case 'add':
+      case 'remove':
+        if (chat.welcome) {
+          let groupMetadata = await this.groupMetadata(jid)
+          for (let user of participants) {
+            let pp = './src/avatar_contact.png'
+            try {
+              pp = await this.getProfilePicture(user)
+            } catch (e) {
+            } finally {
+              text = (action === 'add' ? (chat.sWelcome || this.welcome || conn.welcome || 'Welcome, @user!').replace('@subject', this.getName(jid)).replace('@desc', groupMetadata.desc) :
+                (chat.sBye || this.bye || conn.bye || 'Bye, @user!')).replace('@user', '@' + user.split('@')[0])
+              this.sendFile(jid, pp, 'pp.jpg', text, null, false, {
+                contextInfo: {
+                  mentionedJid: [user]
+                }
+              })
+            }
+          }
         }
-      })
+        break
+      case 'promote':
+        text = (chat.sPromote || this.promote || conn.promote || '@user ```is now Admin```')
+      case 'demote':
+        if (!text) text = (chat.sDemote || this.demote || conn.demote || '@user ```is no longer Admin```')
+        m.reply(text.replace('@user', '@' + participants[0].split('@')[0]))
+        break
     }
   }
-}
 
-conn.onLeave = async function ({ m, participants }) {
-  let chat = global.DATABASE._data.chats[m.key.remoteJid]
-  if (!chat.welcome) return
-  for (let user of participants) {
-    if (this.user.jid == user) continue
-    let pp = './src/avatar_contact.png'
-    try {
-      pp = await this.getProfilePicture(user)
-    } catch (e) {
-    } finally {
-      let text = (chat.sBye || this.bye || conn.bye || 'Bye, @user!').replace('@user', '@' + user.split('@')[0])
-      this.sendFile(m.key.remoteJid, pp, 'pp.jpg', text, m, false, {
-        contextInfo: {
-          mentionedJid: [user]
-        }
-      })
-    }
-  }
-}
-
-conn.onDelete = async function (m) {
+conn.delete = async function (m) {
   if (m.key.fromMe) return
   let chat = global.DATABASE._data.chats[m.key.remoteJid]
   if (chat.antidelete) return
-  await this.reply(m.key.remoteJid, `
-*「 ANTI DELETE 」*
-
-Terdeteksi @${m.participant.split`@`[0]} telah menghapus pesan!
-`.trim(), m.message, {
+  await this.reply(m.key.remoteJid, `*「 ANTI DELETE 」*\n\nTerdeteksi @${m.participant.split`@`[0]} telah menghapus pesan!`, m.message, {
     contextInfo: {
       mentionedJid: [m.participant]
     }
@@ -435,10 +433,9 @@ Terdeteksi @${m.participant.split`@`[0]} telah menghapus pesan!
   this.copyNForward(m.key.remoteJid, m.message).catch(e => console.log(e, m))
 }
 
-conn.on('message-new', conn.handler)
-conn.on('message-delete', conn.onDelete)
-conn.on('group-add', conn.onAdd)
-conn.on('group-leave', conn.onLeave)
+conn.on('chat-update', conn.handler)
+conn.on('message-delete', conn.delete)
+conn.on('group-participants-update', conn.participants)
 conn.on('error', conn.logger.error)
 conn.on('close', () => {
   setTimeout(async () => {
@@ -596,7 +593,7 @@ _quickTest()
 .then(() => conn.logger.info('Quick Test Done'))
 .catch(console.error)
 
-
+let file = require.resolve(__filename)
 fs.watchFile(file, () => {
   fs.unwatchFile(file)
   console.log(chalk.redBright("Update 'main.js'"))
