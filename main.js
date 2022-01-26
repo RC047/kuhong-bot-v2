@@ -1,4 +1,4 @@
-let { WAConnection, MessageType, Mimetype, WA_MESSAGE_STUB_TYPES } = require('@adiwajshing/baileys')
+let { WAConnection: _WAConnection, WA_MESSAGE_STUB_TYPES } = require('@adiwajshing/baileys')
 let express = require('express')
 let { generate } = require('qrcode-terminal')
 let qrcode = require('qrcode')
@@ -15,6 +15,7 @@ let { spawn, spawnSync } = require('child_process')
 let Database = require('./lib/database')
 let Readline = require('readline')
 let rl = Readline.createInterface(process.stdin, process.stdout)
+let WAConnection = simple.WAConnection(_WAConnection)
 
 
 global.owner = ['62895337278647'] // Put your number here
