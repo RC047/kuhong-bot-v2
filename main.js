@@ -12,7 +12,7 @@ let chalk = require('chalk')
 let fs = require('fs')
 let path = require('path')
 let util = require('util')
-let { spawnSync } = require('child_process')
+let { spawn, spawnSync } = require('child_process')
 let Database = require('./lib/database')
 let Readline = require('readline')
 let rl = Readline.createInterface(process.stdin, process.stdout)
@@ -556,12 +556,12 @@ process.on('exit', () => global.DATABASE.save())
 // Quick Test
 async function _quickTest() {
   let test = await Promise.all([
-    cp.spawn('ffmpeg'),
-    cp.spawn('ffprobe'),
-    cp.spawn('ffmpeg', ['-hide_banner', '-loglevel', 'error', '-filter_complex', 'color', '-frames:v', '1', '-f', 'webp', '-']),
-    cp.spawn('convert'),
-    cp.spawn('magick'),
-    cp.spawn('gm'),
+    spawn('ffmpeg'),
+    spawn('ffprobe'),
+    spawn('ffmpeg', ['-hide_banner', '-loglevel', 'error', '-filter_complex', 'color', '-frames:v', '1', '-f', 'webp', '-']),
+    spawn('convert'),
+    spawn('magick'),
+    spawn('gm'),
   ].map(p => {
     return Promise.race([
       new Promise(resolve => {
